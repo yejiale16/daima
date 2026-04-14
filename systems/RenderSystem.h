@@ -5,27 +5,21 @@
 
 #include <Windows.h>
 
-#include "Food.h"
-#include "Snake.h"
+#include "core/StateMachine.h"
+#include "gameplay/Food.h"
+#include "gameplay/Snake.h"
 
-enum class GameStatus {
-    Start = 0,
-    Running = 1,
-    Paused = 2,
-    GameOver = 3
-};
-
-class Renderer {
+class RenderSystem {
 public:
-    Renderer(int boardWidth, int boardHeight, int screenWidth);
+    RenderSystem(int boardWidth, int boardHeight, int screenWidth);
 
     void render(const Snake& snake,
                 const Food& food,
                 int score,
                 int difficulty,
                 double snakeSpeed,
-                GameStatus status,
-                const std::wstring& infoText);
+                GameState state,
+                const std::wstring& statusText);
 
 private:
     int boardWidth;

@@ -10,7 +10,7 @@
 
 class Game {
 public:
-    Game(int width, int height);
+    Game(int width, int height, int screenWidth);
 
     void run();
 
@@ -27,13 +27,19 @@ private:
     Input input;
     Renderer renderer;
     SaveSystem saveSystem;
+    int currentDifficulty;
+    int currentSpeedMs;
+    double currentSnakeSpeed;
 
     void resetGame();
     void processInput(const InputCommand& cmd);
     void updateLogic();
-    std::string buildInfoText() const;
+    std::wstring buildInfoText() const;
 
     bool isWallCollision(const Point& head) const;
+    int computeDifficulty() const;
+    int computeStepIntervalMs(int difficulty) const;
+    double computeSnakeSpeed(int stepIntervalMs) const;
 
     SavedGameData captureSaveData() const;
     bool restoreFromSave();

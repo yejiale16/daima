@@ -1,18 +1,22 @@
 #include "Game.h"
 
+#include <algorithm>
 #include <chrono>
 #include <cstdlib>
 #include <deque>
 #include <thread>
 
-Game::Game(int width, int height)
+Game::Game(int width, int height, int screenWidth)
     : width(width),
       height(height),
       running(true),
       score(0),
       status(GameStatus::Start),
-      renderer(width, height),
-      saveSystem("savegame.txt") {
+            renderer(width, height, screenWidth),
+            saveSystem("savegame.txt"),
+            currentDifficulty(1),
+            currentSpeedMs(180),
+            currentSnakeSpeed(1000.0 / 180.0) {
     resetGame();
     status = GameStatus::Start;
 }
@@ -20,11 +24,15 @@ Game::Game(int width, int height)
 void Game::run() {
     using clock = std::chrono::steady_clock;
     auto lastStep = clock::now();
-    constexpr auto stepInterval = std::chrono::milliseconds(120);
 
     while (running) {
         InputCommand cmd = input.poll();
         processInput(cmd);
+
+        currentDifficulty = computeDifficulty();
+        currentSpeedMs = computeStepIntervalMs(currentDifficulty);
+        currentSnakeSpeed = computeSnakeSpeed(currentSpeedMs);
+        const auto stepInterval = std::chrono::milliseconds(currentSpeedMs);
 
         const auto now = clock::now();
         if (status == GameStatus::Running && now - lastStep >= stepInterval) {
@@ -32,7 +40,7 @@ void Game::run() {
             lastStep = now;
         }
 
-        renderer.render(snake, food, score, status, buildInfoText());
+        renderer.render(snake, food, score, currentDifficulty, currentSnakeSpeed, status, buildInfoText());
         std::this_thread::sleep_for(std::chrono::milliseconds(16));
     }
 }
@@ -43,6 +51,9 @@ void Game::resetGame() {
     snake.reset(centerX, centerY);
     food.generate(width, height, snake.getBody());
     score = 0;
+    currentDifficulty = 1;
+    currentSpeedMs = 180;
+    currentSnakeSpeed = computeSnakeSpeed(currentSpeedMs);
 }
 
 void Game::processInput(const InputCommand& cmd) {
@@ -121,23 +132,38 @@ void Game::updateLogic() {
     }
 }
 
-std::string Game::buildInfoText() const {
-    std::string common = "WASD/Arrows: Move  P: Pause  K: Save  L: Load  Q: Quit";
-
+std::wstring Game::buildInfoText() const {
     if (status == GameStatus::Start) {
-        return "SPACE to start. " + common;
+        return L"\u6309\u7a7a\u683c\u5f00\u59cb\u6e38\u620f\u3002";
     }
     if (status == GameStatus::Paused) {
-        return "Paused. Press P to continue. " + common;
+        return L"\u5df2\u6682\u505c\u3002\u6309 P \u7ee7\u7eed\u3002";
     }
     if (status == GameStatus::GameOver) {
-        return "Game Over. Press SPACE to restart. " + common;
+        return L"\u6e38\u620f\u7ed3\u675f\u3002\u6309\u7a7a\u683c\u91cd\u65b0\u5f00\u59cb\u3002";
     }
-    return common;
+    return L"\u8fdb\u884c\u4e2d\u3002";
 }
 
 bool Game::isWallCollision(const Point& head) const {
     return head.x <= 0 || head.x >= width - 1 || head.y <= 0 || head.y >= height - 1;
+}
+
+int Game::computeDifficulty() const {
+    const int level = 1 + (score / 50);
+    return std::clamp(level, 1, 9);
+}
+
+int Game::computeStepIntervalMs(int difficulty) const {
+    const int interval = 180 - (difficulty - 1) * 15;
+    return (std::max)(60, interval);
+}
+
+double Game::computeSnakeSpeed(int stepIntervalMs) const {
+    if (stepIntervalMs <= 0) {
+        return 0.0;
+    }
+    return 1000.0 / static_cast<double>(stepIntervalMs);
 }
 
 SavedGameData Game::captureSaveData() const {
